@@ -4,7 +4,11 @@
 \alias{leeR_demo}
 \title{Print Hello World!}
 \usage{
-leeR_demo()
+leeR_demo(string)
+}
+\arguments{
+\item{string}{character containing a string to
+print}
 }
 \value{
 A string saying "Hello World"
