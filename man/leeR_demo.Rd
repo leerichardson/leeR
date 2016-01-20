@@ -2,7 +2,7 @@
 % Please edit documentation in R/examples.R
 \name{leeR_demo}
 \alias{leeR_demo}
-\title{Print Hello World!}
+\title{Print a string!}
 \usage{
 leeR_demo(string)
 }
@@ -11,10 +11,10 @@ leeR_demo(string)
 print}
 }
 \value{
-A string saying "Hello World"
+A printed string
 }
 \description{
-Print Hello World!
+Print a string!
 }
 \examples{
 leeR_demo()
