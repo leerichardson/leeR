@@ -19,4 +19,3 @@ Print a string!
 \examples{
 leeR_demo()
 }
-

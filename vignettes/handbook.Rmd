@@ -1,0 +1,255 @@
+---
+title: "R Package Handbook"
+author: "Lee Richardson"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+This document provides provides a centralized resource for the core skills I have learned while writing R-packages. My goal is an evolving document, so everytime I learn a new core skill regarding R-packages, I can record what I have learned here. This way, whenever I get into the situation again I can quickly recall what I learned, or have the small code-chunk which does the job. I made this because I wanted to write down what I was learning about writing C code inside R packages, but did not know where to put it. 
+
+# Devtools 
+Devtools is an incredibly useful R package written by Hadley Wickham, which helping with package development. I have adopted it and use it constantly, so:
+               
+```{r, eval = FALSE}
+library(knitr)
+library(devtools)
+```
+
+
+# Adding C Code 
+There are two ways to call C code from : .C and .Call. .C is more straightforward, since it automatically between R and C data-structures. .Call is more more complicated, but gives additional flexibility required for more complex packages. [The first bulleted list in this article](http://mazamascience.com/WorkingWithData/?p=1099) provides a useful overview of the differences between the two approaches.
+
+Of course, here we are focused on specifically _how to use C-code in an R Package_. There are many articles which cover these components, but for me I needed to read about 7/8 of them, talk to people, find examples on github, etc. before I finally got a hang of it. Here, I am attempting to summarize what I learned so I can look back on this when I need to add C-code again, and see what helped me last time-around.
+
+
+## Adding C Code using .C
+
+
+
+## Adding C Code using .Call
+I started using .Call over .C because the algorithm I am working on for my thesis uses a lot of memory. So, I needed as much memory flexibility as possible when working on my algorithm. This is available from .Call, since .C requires all the memory to be allocated from R. When I was trying to allocate large R arrays, my R session would either freeze or crash, and I was not able to run my algorithm to see how fast things were going. 
+
+What I was looking for is a way to write as much of my code as possible using C, only using Rto pass data back and forth. After talking to Taylor, he pointed me to [the following package](https://github.com/statsmaths/glmgen) containing a C library, and an R package which uses the C library directly. Taylor also wrote an example package called _primesum_, which implements this in a striaghtforward way, removing many of the specific package details. 
+
+The structure of these two packages was ideal: An R-function using the `.Call()`interface, which calls an `r-wrapper.c` function that converts R input data to C, calls the C function, and converts the output back to an R data structure. At a high-level, this sounds simple. But there were several other complications in order to get this program up and functioning in an R-package. 
+
+### The code 
+
+But first, let's start with the R-code, located at `R/dft.R`. Since my thesis algorithm is a type of discrete Fourier transform (DFT), we will work on the striaghtforward DFT. This way, I can get the structure down in order to focus on the details of the R-C conversions. The `dft` function is supposed to take a 1D vector, 
+
+```{r, eval = FALSE}
+#' Discrete Fourier Transform
+#'
+#' @param x real or complex vector
+#' @param inverse logical, defaults to FALSE
+#'
+#' @useDynLib leeR dft_
+#'
+#' @export
+#'
+#' @return the DFT of x
+dft <- function(x, inverse = FALSE) {
+  # If inverse is true: 1, false: -1
+  inverse <- ifelse(inverse, 1, -1)
+
+  # Call the C-code with the DFT implementation
+  a <- .Call("dft_", x, inverse, PACKAGE = "leeR")
+
+  return(a)
+}
+```
+
+However, we only need to focus on the line starting with `a <- `, which uses the `.Call` interface. The first argument of .Call is the name of the C function we are calling. The second and third arguments (`x` and `inverse`) are inputs to the C function, and the final argument specifies the Package where the C function comes from. Technically, this specifies either a Shared Object Library `.so` or a Dynamic Linked Library `.dll`, the windows version of shared objects. This means when searching for the `dft_` function, I am only looking in the shared object library created by this package.
+
+This is it for the `.Call` interface. You do not need to allocate the output vector that comes from the function, this can be created in C and returns. 
+
+Next, we include a the c-wrapper function, located in `src/r-wrapper.c`:
+
+```{c, eval=FALSE}
+#include <R.h>
+#include <Rinternals.h>
+#include <dft.h>
+
+// R-wrapper C dft function
+SEXP dft_(SEXP _x, SEXP _inverse) {
+  // Convert SEXP variables to C variables ---
+  int inverse = asInteger(_inverse);
+
+  Rcomplex *x;
+  x = COMPLEX(_x);
+    
+  // Allocate the outputs for returning to R --
+  SEXP a_ = PROTECT(allocVector(CPLXSXP, n));
+  Rcomplex *a;
+  a = COMPLEX(a_);
+
+  // Call the C dft function using C variables
+  int n = length(_x);
+  dft(x, a, inverse, n);
+
+  // Unprotect the a_ vector from garbage collection
+  UNPROTECT(1);
+
+  return(a_);
+}
+```
+
+The first thing that jumps out at you is the SEXP variable types everywhere. As it turns out, all R-objects are internally represented as SEXP's, short for "S Expression". SEXP's are pointers to SEXPREC structures, which hold the R objects we are familiar with (numeric, integer, character, complex. etc). SEXPREC have a 32-bit header, which gives the specific type of object. So, R objects are stored internally as SEXPREC structures. 
+
+Next, we need to include the R.h and Rinternals.h header files. The R.h is the API, defining almost all of R's functionality. Rinternals.h gives you the data structures, and dft.c is the header for the c-function we are calling in this example. The inputs to our function are also SEXPs, so they are pointers to SEXPREC structures. I imagine all .Call functions will look like this: SEXP inputs, and SEXP outputs. 
+
+Remember, the purpose of our wrapper is: convert to C variables, Call C-function with C-variables, and return R-variable. The first step is converting the R SEXPs to C vatiables, which is what the first 4 lines of this function do. Converting to ints uses the asInteger scalar constructor function. Vectors are a little more tricky, but what has been working for me is initializing a pointing using the internal C-type, then using an accessor function to move the vector data to this pointers location. All of the specifics mentioned here come from [this cheatsheet](http://tolstoy.newcastle.edu.au/R/e17/devel/att-0724/R_API_cheat_sheet.pdf). PROTECT should always be used with allocVector, since this tells R not to perform garvase collection in this location. You just need to remember to UNPROTECT the same number of PROTECTs are the end of the function.
+
+_SIDE NOTE: Since Rcomplex is a C99 double complex, can I get away with using complex.h in my dft function, opposed to Rcomplex (which defeats the point)_
+
+In this case, our C-function takes a pointer to input and output, and operates on these two pointers for the calculation. So, next we want to allocate the output we will be returning to R. To do this, we use the allocVector function from R-internals, and specifically allocate a length n, complex vector. A complex vector is a represented uses R's overhead, plus two C99 double complex's. So, each complex element is 16 bytes. To make it so the output of our c-function goes to the right place, we do the same thing we did for the input data. Specifically, we create a pointer using R's internal structure, and point it to the complex data of R's internal structures, using the COMPLEX accesor function.
+
+Now, all we need to do is call the C function, unprotect the vector for garbage collection, then return the allocated vector. 
+
+The C function is not the most important part of this example, and it is probably a little more complicated than it should be, since I am writing separate functions for complex addition/multiplication (see side-node, I would love to find a way around this.) The C-code is:
+
+```{c, eval = FALSE}
+#include <stdio.h>
+#include <stdlib.h>
+#include <dft_utils.h> // add, multilply, and twiddle factor functions
+#include <R.h> // Rcomplex data-type, although I wish complex.h :(
+
+void dft(Rcomplex *x, Rcomplex *a, int inverse, int n) {
+  // Initialize the iterator variables
+  int j, k;
+
+  // Exponent of the complex exponential
+  double exponent;
+
+  // Allocate variables needed for the coefficient
+  Rcomplex tot, val, twiddle;
+
+  // Loop over coefficients
+  for (k = 0; k < n; k++) {
+    // Initialize the value to 0 + i 0
+    tot.r = 0;
+    tot.i = 0;
+
+    // Loop over data-vector
+    for (j = 0; j < n; j++) {
+      // Get the twiddle factor for this particular iteration
+      exponent = ((j * k) / (double) n);
+      twiddle = get_twiddle(exponent, inverse);
+
+      // Multiply the x-value by the current twiddle factor
+      val = mult(x[j], twiddle);
+
+      // Add the total variable to the current calculated value
+      tot = add(tot, val);
+    }
+
+    a[k] = tot;
+  }
+}
+```
+
+This is just raw c-code, the only R-dependent part is that we are using the R.h header for the Rcomplex data-type. Now, this is all of the code you need for an efficient R-wrapper. In the next section, we add all of the additional parts for including this code in the leeR R-package.
+
+### Additional Details for Packages 
+The first thing we want to do is make the functions in our `src/r-wrapper/c` available from the package. To do this, the common practice from package I've seen:
+
+https://github.com/statsmaths/glmgen
+https://github.com/joshuaulrich/xts
+https://github.com/hadley/dplyr/
+
+is adding a package header file to `inst/include/leeR.h`. This header file defines all of the functions with r-wrappers. To do this, lets create the file and add:
+
+```{c, eval = FALSE}
+#include <R.h>
+#include <Rinternals.h>
+
+// Define the r-wrapper functions used in the leeR package
+SEXP dft_(SEXP _x, SEXP _inverse);
+```
+
+This uses R and Rinternals, definining the wrapper function we wrote in the previous section. Now, to make sure we are compuling in the right space, create a `src/Makevars` file with:
+
+```{r, eval=FALSE}
+PKG_CPPFLAGS = -I../inst/include
+```
+
+Now, in order to use the leeR.so object with our compiled c-code, we need to add `useDynLib(leeR,dft_)` to our namespace file (Section 1.5.4 in writing R extensions for more details). This loads the function `dft_` from the shared object `leeR.so` using the `library.dyam` function. This happens "after the package code has been loaded and before running the load hook function", I am not entirely clear what that means, but it makes it so the package loads it before using it, I think. Fortunately we can use devtools and roxygen2 to do this, by putting 
+
+```{r}
+#' @useDynLib leeR dft_
+```
+
+in the documentation of our R-function.
+
+Finally, the last part of the process involves registering our .Call (and .C, .Fortan functions) explicitly. This helps for making sure our functions work accross operating systems. An unbelievably clear presentation of this was given by [Duncan Temple Lang](https://www.r-project.org/doc/Rnews/Rnews_2001-3.pdf), and this is mainly what I am following here. His reasoning:
+
+"That’s really the point: we are
+depending on highly system-specific features that
+are not entirely reproducible and can be very, very
+frustrating to diagnose. Ideally, we want S to help
+out and tell us we are calling native routines with the
+wrong function, signal that we have the wrong number
+of arguments, and perhaps even convert those arguments
+to the appropriate types ..."
+
+"... Well, there is a better approach which allows S to do
+exactly these things. The idea is to have the DLL explicitly
+tell S which routines are available to S, and
+for which interface mechanisms (.C(), .Call(), . . .).
+R stores the information about these routines and
+consults it when the user calls a native routine. When
+does the DLL get to tell R about the routines? When
+we load the DLL, R calls the R-specific initialization
+routine in that DLL (named R_init_dllname()), if it
+exists. This routine can register the routines as well
+as performing any other initialization it wants"
+
+
+So, we are explicitly registering our functions with .Call (and .C, etc.) interfaces. To do this, we add a file `src/r-init` with:
+
+```{c, eval = FALSE}
+#include <R.h>
+#include <Rinternals.h>
+#include <R_ext/Rdynload.h>
+#include <leeR.h>
+
+/* --- REGISTER FUNCTIONS --- */
+
+// Create an array of all methods using .Call interface
+// First Argument: Name of function
+// Second Argument: Pointer to the actual routing
+// Third Argument: Number of arguments the routine is expecting
+static R_CallMethodDef callMethods[] = {
+  {"dft_", (DL_FUNC)&dft_, 2},
+  {NULL, NULL, 0}
+};
+
+// Register the .Call methods. Dll *info comes from R and is
+// information about the shared object/dll
+void R_init_leeR (DllInfo *info) {
+  // Register routines defines in the above arrays
+  R_registerRoutines(info, NULL, callMethods, NULL, NULL);
+
+  // Default to dynamic lookup if the routine is not found
+  R_useDynamicSymbols(info, TRUE);
+}
+```
+
+Using the R-internals, the first function here contains an array containaing 4 elements: the c-function name, a pointing to the c-function to take, and the number of arguments. Now, we define the R_init_leeR function which registers the functions when the package is loaded, using the R_registerRoutines function, and using the callMethods array we created about.
+
+And, we are now all setl. We write a function in `tests/testthat/test-dft.R`, and we are home free, having succesfully created a function in an R package, using the .Call interface!
+
+#### Resources
+Some various useful collected links along the way:
+
+https://www.r-project.org/doc/Rnews/Rnews_2001-3.pdf
+https://www.r-project.org/doc/Rnews/Rnews_2001-3.pdf
+http://www.stat.purdue.edu/~liu105/STAT598G_lab/Rcourse94up.pdf
+http://tolstoy.newcastle.edu.au/R/e17/devel/att-0724/R_API_cheat_sheet.pdf
+http://adv-r.had.co.nz/C-interface.html
+https://github.com/statsmaths/glmgen
+https://github.com/joshuaulrich/xts
