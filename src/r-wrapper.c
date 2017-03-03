@@ -10,10 +10,8 @@ SEXP dft_(SEXP _x, SEXP _inverse) {
   Rcomplex *x;
   x = COMPLEX(_x);
 
-  // Get the length of input/output vectors
-  int n = length(_x);
-
   // Allocate the outputs for returning to R --
+  int n = length(_x);
   SEXP a_ = PROTECT(allocVector(CPLXSXP, n));
   Rcomplex *a;
   a = COMPLEX(a_);

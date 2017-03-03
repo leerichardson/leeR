@@ -33,13 +33,12 @@ Of course, here we are focused on specifically _how to use C-code in an R Packag
 ## Adding C Code using .Call
 I started using .Call over .C because the algorithm I am working on for my thesis uses a lot of memory. So, I needed as much memory flexibility as possible when working on my algorithm. This is available from .Call, since .C requires all the memory to be allocated from R. When I was trying to allocate large R arrays, my R session would either freeze or crash, and I was not able to run my algorithm to see how fast things were going. 
 
-What I was looking for is a way to write as much of my code as possible using C, only using Rto pass data back and forth. After talking to Taylor, he pointed me to [the following package](https://github.com/statsmaths/glmgen) containing a C library, and an R package which uses the C library directly. Taylor also wrote an example package called _primesum_, which implements this in a striaghtforward way, removing many of the specific package details. 
+I want to write as much of my code as possible using C, only using R for input data and analyzing the output. Taylor pointed me to the [the following R package](https://github.com/statsmaths/glmgen), which contains both a c library, and an R package calling this C library. In addition, Taylor wrote an R package called _primesum_, implementing a condensed version of the _glmgen_ package. 
 
-The structure of these two packages was ideal: An R-function using the `.Call()`interface, which calls an `r-wrapper.c` function that converts R input data to C, calls the C function, and converts the output back to an R data structure. At a high-level, this sounds simple. But there were several other complications in order to get this program up and functioning in an R-package. 
+The structure of these two packages was ideal: An R-function using the `.Call()`interface. This R function calls a function defined in `r-wrapper.c`, which converts the R data structure to C, runs the c-function, then converts the output back into an R data-structure. Conceptually, this is straightforward. But there are several smaller details required for getting the code working efficiently in an R Package.
 
 ### The code 
-
-But first, let's start with the R-code, located at `R/dft.R`. Since my thesis algorithm is a type of discrete Fourier transform (DFT), we will work on the striaghtforward DFT. This way, I can get the structure down in order to focus on the details of the R-C conversions. The `dft` function is supposed to take a 1D vector, 
+Lets start with the R function, located as usual at `R/dft.R`. The algorithm I am implementing for my thesis is a type of discrete Fourier transform, so here we will implement the DFT. The goal is getting the structure of code, wrappers, etc down, so hopefully the complexities of including complex number do not make this more challenging. Our R-function is:
 
 ```{r, eval = FALSE}
 #' Discrete Fourier Transform
@@ -63,11 +62,11 @@ dft <- function(x, inverse = FALSE) {
 }
 ```
 
-However, we only need to focus on the line starting with `a <- `, which uses the `.Call` interface. The first argument of .Call is the name of the C function we are calling. The second and third arguments (`x` and `inverse`) are inputs to the C function, and the final argument specifies the Package where the C function comes from. Technically, this specifies either a Shared Object Library `.so` or a Dynamic Linked Library `.dll`, the windows version of shared objects. This means when searching for the `dft_` function, I am only looking in the shared object library created by this package.
+For now, the most important part is the second line of non-commented code starting with `a <- `. This line uses the `.Call` interface, the focus of this section. The first argument of `.Call` gives the name of the c-function that we are calling. In this case, we have a c-function called `dft_` defined in our `r-wrapper` function. The second and third arguments just inputs to the C function, and the final argument specifies either the Dynamic Linked Library `.dll`, or Shared Object `.so` library containing this function. In our case, this is simply the name of our package, and our final built package will have a `libs/leeR.so` shared object file, which is what the PACKAGE argument is calling. 
 
-This is it for the `.Call` interface. You do not need to allocate the output vector that comes from the function, this can be created in C and returns. 
+And that is it for the `.Call` interface. You do not need to allocate the outputs from the function, as the raw R objects are passed to C to be dealt with. 
 
-Next, we include a the c-wrapper function, located in `src/r-wrapper.c`:
+Now, the `.Call` function is looking for a c-function with name `dft_`, in the `leeR.so` shared object library. In our case, this is located in the file with all of our r-wrapper functions, in `src/r-wrapper.c`. This file looks like:
 
 ```{c, eval=FALSE}
 #include <R.h>
@@ -83,6 +82,7 @@ SEXP dft_(SEXP _x, SEXP _inverse) {
   x = COMPLEX(_x);
     
   // Allocate the outputs for returning to R --
+  int n = length(_x);
   SEXP a_ = PROTECT(allocVector(CPLXSXP, n));
   Rcomplex *a;
   a = COMPLEX(a_);
@@ -98,25 +98,27 @@ SEXP dft_(SEXP _x, SEXP _inverse) {
 }
 ```
 
-The first thing that jumps out at you is the SEXP variable types everywhere. As it turns out, all R-objects are internally represented as SEXP's, short for "S Expression". SEXP's are pointers to SEXPREC structures, which hold the R objects we are familiar with (numeric, integer, character, complex. etc). SEXPREC have a 32-bit header, which gives the specific type of object. So, R objects are stored internally as SEXPREC structures. 
+Now, if you add this file and try to run, it might not work. See the final section for details on how to do this, but we need to define a header file for the wrapper functions, and tell R where to compile from using Makevars. In addition, make sure you have the `#' @useDynLib leeR dft_` type line in your R-function.
 
-Next, we need to include the R.h and Rinternals.h header files. The R.h is the API, defining almost all of R's functionality. Rinternals.h gives you the data structures, and dft.c is the header for the c-function we are calling in this example. The inputs to our function are also SEXPs, so they are pointers to SEXPREC structures. I imagine all .Call functions will look like this: SEXP inputs, and SEXP outputs. 
+On to the c-wrapper function. The first thing that jumps out at you is the SEXP variables. As it turns out, all R-objects are internally represented as SEXP's, short for "S Expression". SEXP's are pointers to SEXPREC structures, which hold the R objects we are familiar with (numeric, integer, character, complex. etc). SEXPREC structures have a 5-bit header specifying the 2^5 = 32 SEXP types.  
 
-Remember, the purpose of our wrapper is: convert to C variables, Call C-function with C-variables, and return R-variable. The first step is converting the R SEXPs to C vatiables, which is what the first 4 lines of this function do. Converting to ints uses the asInteger scalar constructor function. Vectors are a little more tricky, but what has been working for me is initializing a pointing using the internal C-type, then using an accessor function to move the vector data to this pointers location. All of the specifics mentioned here come from [this cheatsheet](http://tolstoy.newcastle.edu.au/R/e17/devel/att-0724/R_API_cheat_sheet.pdf). PROTECT should always be used with allocVector, since this tells R not to perform garvase collection in this location. You just need to remember to UNPROTECT the same number of PROTECTs are the end of the function.
+Since we are using the R API, we need to include the R.h and Rinternals.h header files.  R.h is R's API, defining almost all of R's functionality. Rinternals.h gives you the data structures, and dft.h is the header file for the c-functions we will be calling. The inputs and outputs to our function are SEXPs, which just implies that the input is an R object, and the output is an R object, consistent with what we are expecting.
+
+Now, the purpose of this c-wrapper is converting R-objects into c-variables, running the computation in c using the c-variables, and converting the output back to R-objects. Our first step is converting the R SEXPs to c-variables, shown in the first section of the function. All of the functions used here are available from [this cheatsheet](http://tolstoy.newcastle.edu.au/R/e17/devel/att-0724/R_API_cheat_sheet.pdf). From this, we can convert the integers to c-int's using asInteger, and access the complex vector using COMPLEX. Vectors are a bit more tricky, but what worked for me is initializing a pointer with the internal C structure, then using the accessor funcion, (in this case, COMPLEX) for directing this pointer to the appropriate data.
+
+In this situation, our c-function takes a pointer for input and output. So, next we allocate the output we are returning to R. To do this, we use the allocVector function, allocating a length-n complex vector. A complex vector is internally represented as an Rcomplex, which is just to C99 complex doubles, meaning that each complex element is 16 bytes. To access this vector with c-functions, we do the same thing we did for the input. Specifically, we create a pointer using R's internal structure, and point it to the complex data of our allocVector output using our COMPLEX accessor function. PROTECT should always be used with allocVector, since this tells R not to perform garbage collection on this object. All thats needed is remembering to UNPROTECT at the end of the function.
 
 _SIDE NOTE: Since Rcomplex is a C99 double complex, can I get away with using complex.h in my dft function, opposed to Rcomplex (which defeats the point)_
 
-In this case, our C-function takes a pointer to input and output, and operates on these two pointers for the calculation. So, next we want to allocate the output we will be returning to R. To do this, we use the allocVector function from R-internals, and specifically allocate a length n, complex vector. A complex vector is a represented uses R's overhead, plus two C99 double complex's. So, each complex element is 16 bytes. To make it so the output of our c-function goes to the right place, we do the same thing we did for the input data. Specifically, we create a pointer using R's internal structure, and point it to the complex data of R's internal structures, using the COMPLEX accesor function.
+Finally, all that remains is calling the c-function, unprotecting, and returning the final r-object!
 
-Now, all we need to do is call the C function, unprotect the vector for garbage collection, then return the allocated vector. 
-
-The C function is not the most important part of this example, and it is probably a little more complicated than it should be, since I am writing separate functions for complex addition/multiplication (see side-node, I would love to find a way around this.) The C-code is:
+The C function is probably the least important component of this example, since it is just a c-function working with c-variables. In addition, I probably made this more complicated than it should be, since I need a lot of extra parts to get the complex number portions to work (I would love to find a way around this! using the C99 complex.h header instead of Rcomplex.) Anyway, The C-code is:
 
 ```{c, eval = FALSE}
 #include <stdio.h>
 #include <stdlib.h>
-#include <dft_utils.h> // add, multilply, and twiddle factor functions
-#include <R.h> // Rcomplex data-type, although I wish complex.h :(
+#include <dft_utils.h> 
+#include <R.h> 
 
 void dft(Rcomplex *x, Rcomplex *a, int inverse, int n) {
   // Initialize the iterator variables
@@ -152,7 +154,7 @@ void dft(Rcomplex *x, Rcomplex *a, int inverse, int n) {
 }
 ```
 
-This is just raw c-code, the only R-dependent part is that we are using the R.h header for the Rcomplex data-type. Now, this is all of the code you need for an efficient R-wrapper. In the next section, we add all of the additional parts for including this code in the leeR R-package.
+This is just raw c-code, the only R-dependent part is that we are using the R.h header for the Rcomplex data-type. This is the core coding portion of of writing an R-wrapper to a c-function. However, if we are doing this inside of a package, it still needs a few more details in order to get it working. These are covered in the next section.
 
 ### Additional Details for Packages 
 The first thing we want to do is make the functions in our `src/r-wrapper/c` available from the package. To do this, the common practice from package I've seen:
@@ -207,7 +209,6 @@ we load the DLL, R calls the R-specific initialization
 routine in that DLL (named R_init_dllname()), if it
 exists. This routine can register the routines as well
 as performing any other initialization it wants"
-
 
 So, we are explicitly registering our functions with .Call (and .C, etc.) interfaces. To do this, we add a file `src/r-init` with:
 
