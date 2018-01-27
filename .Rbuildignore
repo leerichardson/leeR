@@ -3,3 +3,4 @@
 ^presentation$
 ^presentations$
 ^\.travis\.yml$
+^cran-comments\.md$
