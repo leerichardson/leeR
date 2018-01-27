@@ -7,15 +7,11 @@
 leeR_demo(string)
 }
 \arguments{
-\item{string}{character containing a string to
-print}
+\item{string}{character containing a string to print}
 }
 \value{
 A printed string
 }
 \description{
 Print a string!
-}
-\examples{
-leeR_demo()
 }

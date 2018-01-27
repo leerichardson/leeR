@@ -10,4 +10,3 @@ test_that("DFT", {
   a_correct <- fft(z = x, inverse = FALSE)
   expect_true(all.equal(a, a_correct))
 })
-
