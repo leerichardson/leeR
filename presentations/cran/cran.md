@@ -92,7 +92,6 @@ generate_mvnorm <- function(n = 10, mean_vec = c(1, 1)) {
 }
 ```
 
-
 Note: Interfacing with other functions
 ========================================================
 <div align="center">
@@ -150,52 +149,98 @@ Then ran: `devtools::check()`
 ***
 ![alt text](images/error-cran.png)
 
-TRAVIS
+Continuous Integration automates checks
+========================================================
+What is Continuous Integration (CI)?
+
+"Continuous Integration is the practice of merging in small code changes frequently - rather than merging in a large change at the end of a development cycle. The goal is to build healthier software by developing and testing in smaller increments. This is where Travis CI comes in." - https://docs.travis-ci.com/user/for-beginners
+
+- Travis is a "Continuous Integration" service
+
+- Use Travis to run `R CMD check` on every Github push
+
+How to use Travis CI
 ========================================================
 
-- Forgetting to run R CMD check consistently builds up problems
-
-- Travis is a "Continuous Integration" service that
-
-
-Travis CI EXAMPLE
-========================================================
+1. Add to package with:
 
 
 ```r
   devtools::use_travis("/home/lee/Dropbox/leeR")
 ```
 
-  language: R
-  sudo: false
-  cache: packages
+2. Get TRAVIS account, link Github account
 
-WinBuilder
+3. Push to Github
+
+4. E-mail will tell you if it passed
+
+Travis builds and checks on Ubuntu
 ========================================================
+
+![alt text](images/travis-output.png)
+
+WinBuilder builds and checks on Windows
+========================================================
+- Travis checks package on **Ubuntu**
+
+- Winbuilder checks package on **Windows**
+
+
+```r
+  devtools::build_win()
+```
+
+- Builds and submits package to
+
 - Simple, just sends an e-mail (example)
 
-FINAL STEPS
+WinBuilder builds and checks on Windows
 ========================================================
-- NOTES
-- devools- release
+
+![alt text](images/winbuilder.png)
+
+The final countdown
+========================================================
+Preliminaries:
+
+1. `R CMD check` passes
+2. Travis CI passes
+3. Winbuilder passes
+
+If all three of these are happening, you are ready to submit!
+
+- Release notes (http://r-pkgs.had.co.nz/release.html#release-check)
+- Aim, aim, Let it fly!
 
 
 ```r
   devtools::release()
 ```
 
+Submits this form https://cran.r-project.org/submit.html
+
 Conclusions
 ========================================================
-- Better to know in the beginning if you're writing functions that will be used
-- Can set-up the infrastucture (e.g. Travis) for ensuring that things work
-- Big win for Devtools
+&nbsp;
+
+- It all comes downt to **R CMD check** passing
+&nbsp;
+
+- Know the package goals. If ultimate goal is CRAN, prepare early
+&nbsp;
+
+- Travis, winbuilder are useful external tools
+&nbsp;
+
+- Big victory for the devtools/R-packages book
 
 Resources
 ========================================================
-http://r-pkgs.had.co.nz/release.html
-https://cran.r-project.org/doc/manuals/r-release/R-exts.html#useDynLib
-http://www.hep.by/gnu/r-patched/r-faq/R-FAQ_20.html
-https://cran.r-project.org/web/packages/policies.html
+- http://r-pkgs.had.co.nz/check.html
+- https://cran.r-project.org/doc/manuals/r-release/R-exts.html#useDynLib
+- http://www.hep.by/gnu/r-patched/r-faq/R-FAQ_20.html
+- https://cran.r-project.org/web/packages/policies.html
 
 Two good lists of all the checks are
 - http://r-pkgs.had.co.nz/check.html
