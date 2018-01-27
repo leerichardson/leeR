@@ -4,8 +4,9 @@ Version: 1.0.0
 Author: Lee F. Richardson
 Maintainer: Lee F. Richardson <leerichardson2013@gmail.com>
 Description: This package provides example code for various R-package
-  development techniques. Currently includes a section on getting a package on
-  CRAN, and a basic introduction.
+   techniques. It currently includes example code for writing functions,
+   documenting functions, testing, writing c-code, and getting a package
+   set up for CRAN.
 Depends:
     R (>= 3.2.2)
 License: MIT + file LICENSE
