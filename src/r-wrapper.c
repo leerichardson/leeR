@@ -24,4 +24,3 @@ SEXP dft_(SEXP _x, SEXP _inverse) {
 
   return(a_);
 }
-

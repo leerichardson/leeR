@@ -1,5 +1,5 @@
 ---
-title: "R Package Handbook"
+title: "C Code using .Call"
 author: "Lee Richardson"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
@@ -9,31 +9,14 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-This document provides provides a centralized resource for the core skills I have learned while writing R-packages. My goal is an evolving document, so everytime I learn a new core skill regarding R-packages, I can record what I have learned here. This way, whenever I get into the situation again I can quickly recall what I learned, or have the small code-chunk which does the job. I made this because I wanted to write down what I was learning about writing C code inside R packages, but did not know where to put it. 
-
-# Devtools 
-Devtools is an incredibly useful R package written by Hadley Wickham, which helping with package development. I have adopted it and use it constantly, so:
-               
-```{r, eval = FALSE}
-library(knitr)
-library(devtools)
-```
-
-
-# Adding C Code 
 There are two ways to call C code from : .C and .Call. .C is more straightforward, since it automatically between R and C data-structures. .Call is more more complicated, but gives additional flexibility required for more complex packages. [The first bulleted list in this article](http://mazamascience.com/WorkingWithData/?p=1099) provides a useful overview of the differences between the two approaches.
 
-Of course, here we are focused on specifically _how to use C-code in an R Package_. There are many articles which cover these components, but for me I needed to read about 7/8 of them, talk to people, find examples on github, etc. before I finally got a hang of it. Here, I am attempting to summarize what I learned so I can look back on this when I need to add C-code again, and see what helped me last time-around.
-
-
-## Adding C Code using .C
-
-
+Of course, here we are focused on specifically _how to use C-code in an R Package_. There are many articles which cover these components, but  I needed to triangulate about 7/8 of them, talk to people, find examples on github, etc. before I finally got a hang of it. This document summarizes what I learned so that I can use it as a reference. 
 
 ## Adding C Code using .Call
-I started using .Call over .C because the algorithm I am working on for my thesis uses a lot of memory. So, I needed as much memory flexibility as possible when working on my algorithm. This is available from .Call, since .C requires all the memory to be allocated from R. When I was trying to allocate large R arrays, my R session would either freeze or crash, and I was not able to run my algorithm to see how fast things were going. 
+I started using .Call over .C because the algorithm I am working on for my thesis uses a lot of memory. So, I needed as much memory flexibility as possible when working on my algorithm. This is available from .Call, since .C requires all the memory to be allocated from R. When I was trying to allocate large R arrays, my session would freeze or crash. 
 
-I want to write as much of my code as possible using C, only using R for input data and analyzing the output. Taylor pointed me to the [the following R package](https://github.com/statsmaths/glmgen), which contains both a c library, and an R package calling this C library. In addition, Taylor wrote an R package called _primesum_, implementing a condensed version of the _glmgen_ package. 
+I want to write as much of my code as possible using C, only using R for input and output. Taylor pointed me to the [the following R package](https://github.com/statsmaths/glmgen), that contains both a c library, and an R package calling this C library. In addition, Taylor wrote an R package called _primesum_, implementing a condensed version of the _glmgen_ package. 
 
 The structure of these two packages was ideal: An R-function using the `.Call()`interface. This R function calls a function defined in `r-wrapper.c`, which converts the R data structure to C, runs the c-function, then converts the output back into an R data-structure. Conceptually, this is straightforward. But there are several smaller details required for getting the code working efficiently in an R Package.
 
@@ -54,6 +37,9 @@ Lets start with the R function, located as usual at `R/dft.R`. The algorithm I a
 dft <- function(x, inverse = FALSE) {
   # If inverse is true: 1, false: -1
   inverse <- ifelse(inverse, 1, -1)
+
+  # Ensure the input is a complex number
+  if (is.complex(x) == FALSE) {  x <- as.complex(x) }
 
   # Call the C-code with the DFT implementation
   a <- .Call("dft_", x, inverse, PACKAGE = "leeR")
@@ -157,7 +143,7 @@ void dft(Rcomplex *x, Rcomplex *a, int inverse, int n) {
 This is just raw c-code, the only R-dependent part is that we are using the R.h header for the Rcomplex data-type. This is the core coding portion of of writing an R-wrapper to a c-function. However, if we are doing this inside of a package, it still needs a few more details in order to get it working. These are covered in the next section.
 
 ### Additional Details for Packages 
-The first thing we want to do is make the functions in our `src/r-wrapper/c` available from the package. To do this, the common practice from package I've seen:
+The first thing we want to do is make the functions in our `src/r-wrapper.c` available from the package. To do this, the common practice from package I've seen:
 
 https://github.com/statsmaths/glmgen
 https://github.com/joshuaulrich/xts
@@ -242,15 +228,14 @@ void R_init_leeR (DllInfo *info) {
 
 Using the R-internals, the first function here contains an array containaing 4 elements: the c-function name, a pointing to the c-function to take, and the number of arguments. Now, we define the R_init_leeR function which registers the functions when the package is loaded, using the R_registerRoutines function, and using the callMethods array we created about.
 
-And, we are now all setl. We write a function in `tests/testthat/test-dft.R`, and we are home free, having succesfully created a function in an R package, using the .Call interface!
+We are all set! We write a function in `tests/testthat/test-dft.R`, and we are home free, having succesfully created a function in an R package, using the .Call interface!
 
-#### Resources
+### Resources
 Some various useful collected links along the way:
 
-https://www.r-project.org/doc/Rnews/Rnews_2001-3.pdf
-https://www.r-project.org/doc/Rnews/Rnews_2001-3.pdf
-http://www.stat.purdue.edu/~liu105/STAT598G_lab/Rcourse94up.pdf
-http://tolstoy.newcastle.edu.au/R/e17/devel/att-0724/R_API_cheat_sheet.pdf
-http://adv-r.had.co.nz/C-interface.html
-https://github.com/statsmaths/glmgen
-https://github.com/joshuaulrich/xts
+- https://www.r-project.org/doc/Rnews/Rnews_2001-3.pdf
+- http://www.stat.purdue.edu/~liu105/STAT598G_lab/Rcourse94up.pdf
+- http://tolstoy.newcastle.edu.au/R/e17/devel/att-0724/R_API_cheat_sheet.pdf
+- http://adv-r.had.co.nz/C-interface.html
+- https://github.com/statsmaths/glmgen
+- https://github.com/joshuaulrich/xts

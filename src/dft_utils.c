@@ -32,4 +32,3 @@ Rcomplex get_twiddle(double exponent, int inverse) {
 
   return twiddle;
 }
-
