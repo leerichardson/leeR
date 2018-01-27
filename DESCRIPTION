@@ -1,10 +1,10 @@
 Package: leeR
-Title: R-package development example
+Title: R-Package Development Examples
 Version: 1.0.0
 Author: Lee F. Richardson
 Maintainer: Lee F. Richardson <leerichardson2013@gmail.com>
-Description: This package provides example code for various R-package
-   techniques. It currently includes example code for writing functions,
+Description: Provides example code for various R-package
+   techniques. Currently includes example code for writing functions,
    documenting functions, testing, writing c-code, and getting a package
    set up for CRAN.
 Depends:
