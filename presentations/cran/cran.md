@@ -2,51 +2,56 @@ CRAN and R-Packages
 ========================================================
 author: Lee F Richardson
 date: Jan 30, 2018
-css: custom.css
+
+1. What is CRAN? Why use it?
+2. R CMD check
+3. Travis, Winbuilder, and Submitting
+
+All code online at: https://github.com/leerichardson/leeR
 
 What is CRAN?
 ========================================================
 &nbsp;
 
-"The "Comprehensive R Archive Network" (CRAN) is a collection of sites which carry identical material, consisting of the R distribution(s), the **contributed extensions**, documentation for R, and binaries."
+"The Comprehensive R Archive Network (CRAN) is a collection of sites which carry identical material, consisting of the R distribution(s), the **contributed extensions**, documentation for R, and binaries."
+<br><br>
+- CRAN servers all over the world, called *mirrors*
+<br><br>
+- CRAN servers include **contributed extensions**, (R-packages)
 
-&nbsp;
-- Official CRAN servers throughout the world
-&nbsp;
-- CRAN servers include **contributed extensions**, (R-packages!)
-
-Why CRAN?
+Why put your package on CRAN?
 ========================================================
-&nbsp;
-
+<br><br>
 - Authenticity
+<br><br>
 
-- Quality Control (adds several more checks)
+- Quality Control (external standards/checks)
+<br><br>
 
-- More likely to be used
+- Higher usage (most people use `install.packages`)
+<br><br>
 
 CRAN vs. Github
 ========================================================
-&nbsp;
+<br><br>
 
-- CRAN more formal, reliable, but takes more effort
+- CRAN, Github are platforms for sharing R packages
+<br><br>
 
-- Github quicker, more lightweight.
+- CRAN more reliable, takes more effort
+<br><br>
 
-- Choice depends on what you're doing (exploring vs. producing)
-Data analysis makes more sense Github (Xiao Hui), Formal, generalized
-methods make much more sense on CRAN (rigor, quality).
+- Github easy, no external checks
+<br><br>
 
-- Don't want to "add to the chaos" if you don't need to
+- Choice depends on Project
+<br><br>
 
 It all comes down to R CMD check
 ========================================================
-&nbsp;
 
-- `R CMD check` is a terminal command
-&nbsp;
-- Runs series of checks
-&nbsp;
+`R CMD check` is a terminal command that runs checks
+
 - Easy to run with the `devtools` package:
 
 
@@ -54,65 +59,61 @@ It all comes down to R CMD check
   devtools::check()
 ```
 
+In addition to `R CMD check`,  devtools:
+
 - Automatically runs documentation,
+
 - Builds package (`R CMD build`) first
-- Default uses `--as-cran-`
 
 Three Types: Notes, Warnings, and Errors
 ========================================================
-&nbsp;
-&nbsp;
-
-- **Errors**:  Most Severe (e.g. tests don't pass)
-&nbsp;
-&nbsp;
-
-- **Warnings**: Medium Severe:
-&nbsp;
-&nbsp;
-
+`R CMD check` gives three types of feedback:
+- **Errors**:  Most Severe
+<br><br>
+- **Warnings**: Medium Severe
+<br><br>
 - **Notes**: Least Severe
-&nbsp;
-&nbsp;
+<br><br>
 
-Note: Interfacing with other functions
+Details on individual checks:
+
+1. Section 1.3.1 of Writing R Extensions
+
+2. *Checking* Chapter of R-packages book
+
+Will check catch anything here?
 ========================================================
+<br><br>
+  Say we changed our tests:
+<br><br>
+
 
 ```r
-#' Generate multivariate normal random numbers
-#'
-#' @param n number of observations
-#' @param mean_vec vector of means
-#'
-#' @return n x length(mean_vec) of observations
-#' from a multivariate normal
-generate_mvnorm <- function(n = 10, mean_vec = c(1, 1)) {
-  sigma <- diag(mean_vec)
-  rmvnorm(n = n, mean = c(1, 2), sigma = sigma, method = "chol")
-}
+test_that("our function works", {
+  expect_equal(2, 2)
+  expect_equal(1, 2)
+})
 ```
 
-Note: Interfacing with other functions
+<br><br>
+`devtools::check()`...
+
+The tests don't pass!
 ========================================================
+
 <div align="center">
-  <img src="images/note-cran.png" width=600 height=400>
+  <img src="images/error-cran.png" width=800 height=600>
 </div>
 
-Fix with::
-
-
-```r
-  mvtnorm::rmvnorm
-```
-
-Warning: Function doesn't match Docs
+What happens here?
 ========================================================
 
 ```r
 #' Print a string!
 #'
-#' @param string character containing a string to print
+#' @param string to print
 #' @param fake parameter
+#'
 #' @return A printed string
 #' @examples
 #' to_print <- "Hello, world!
@@ -132,29 +133,44 @@ Warning: Function doesn't match Docs
   <img src="images/warning-cran.png" width=800 height=600>
 </div>
 
-Error Example: Tests don't pass
+Anything wrong here?
 ========================================================
-Say we changed our tests:
+
+```r
+#' Multivariate normal random numbers
+#'
+#' @param n number of observations
+#' @param mean_vec vector of means
+#'
+#' @return n x length(mean_vec) of
+#' observations from a multivariate normal
+generate_mvnorm <- function(n, mean_vec) {
+  rmvnorm(n = n, x = mean_vec)
+}
+```
+
+<br><br>
+`devtools::check()`...
+
+Note: Interfacing with other functions
+========================================================
+<div align="center">
+  <img src="images/note-cran.png" width=600 height=400>
+</div>
+
 
 
 ```r
-test_that("our function works", {
-  expect_equal(2, 2)
-  expect_equal(1, 2)
-})
+  devtools::use_package("mvtnorm")
+  mvtnorm::rmvnorm
 ```
-
-Then ran: `devtools::check()`
-
-***
-![alt text](images/error-cran.png)
 
 Continuous Integration automates checks
 ========================================================
 What is Continuous Integration (CI)?
 
 "Continuous Integration is the practice of merging in small code changes frequently - rather than merging in a large change at the end of a development cycle. The goal is to build healthier software by developing and testing in smaller increments. This is where Travis CI comes in." - https://docs.travis-ci.com/user/for-beginners
-
+<br><br>
 - Travis is a "Continuous Integration" service
 
 - Use Travis to run `R CMD check` on every Github push
@@ -162,18 +178,18 @@ What is Continuous Integration (CI)?
 How to use Travis CI
 ========================================================
 
-1. Add to package with:
+- Add to package with:
 
 
 ```r
   devtools::use_travis("/home/lee/Dropbox/leeR")
 ```
 
-2. Get TRAVIS account, link Github account
+- Get Travis account, link Github account
 
-3. Push to Github
+- Push to Github
 
-4. E-mail will tell you if it passed
+- E-mail will tell you if it passed
 
 Travis builds and checks on Ubuntu
 ========================================================
@@ -198,10 +214,13 @@ WinBuilder builds and checks on Windows
 WinBuilder builds and checks on Windows
 ========================================================
 
-![alt text](images/winbuilder.png)
+<div align="center">
+  <img src="images/winbuilder.png" width=800 height=500>
+</div>
 
 The final countdown
 ========================================================
+
 Preliminaries:
 
 1. `R CMD check` passes
@@ -224,14 +243,14 @@ Conclusions
 ========================================================
 &nbsp;
 
-- It all comes downt to **R CMD check** passing
-&nbsp;
+- It all comes down to **R CMD check**
+<br><br>
 
-- Know the package goals. If ultimate goal is CRAN, prepare early
-&nbsp;
+- Know goals, prepare early for CRAN
+<br><br>
 
 - Travis, winbuilder are useful external tools
-&nbsp;
+<br><br>
 
 - Big victory for the devtools/R-packages book
 
