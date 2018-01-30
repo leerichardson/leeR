@@ -5,7 +5,7 @@ date: Jan 30, 2018
 
 1. What is CRAN? Why use it?
 2. R CMD check
-3. Travis, Winbuilder, and Submitting
+3. Travis, Win-builder, and Submitting
 
 All code online at: https://github.com/leerichardson/leeR
 
@@ -34,7 +34,7 @@ Why put your package on CRAN?
 CRAN vs. Github
 ========================================================
 &nbsp;
-- CRAN, Github are platforms for sharing R packages
+- CRAN and Github:  Platforms for sharing R packages
 <br><br>
 
 - CRAN more reliable, takes more effort
@@ -52,6 +52,8 @@ It all comes down to R CMD check
 `R CMD check`: Terminal command, checks package
 &nbsp;
 
+- Runs a series of checks on package
+
 - Run in console with the `devtools` package:
 &nbsp;
 
@@ -61,10 +63,7 @@ It all comes down to R CMD check
 &nbsp;
 
 `devtools::check()` also:
-
-- Automatically runs documentation,
-
-- Builds package (`R CMD build`) first
+- Runs documentation, builds package (`R CMD build`)
 
 Three Types: Notes, Warnings, and Errors
 ========================================================
@@ -169,7 +168,7 @@ After R CMD check passes, we need to...
 <br><br>
 <br><br>
 
-Solve with Continuous Integration and Winbuilder!
+Solve with Continuous Integration and Win-builder!
 
 Continuous Integration automates checks
 ========================================================
@@ -179,7 +178,7 @@ What is Continuous Integration (CI)?
 <br><br>
 - Travis is a "Continuous Integration" (CI) service
 
-- Use Tracis `R CMD check` on every Github push
+- Use Travis `R CMD check` on every Github push
 
 How to integrate Travis with R-package
 ========================================================
@@ -205,13 +204,13 @@ Travis builds and checks on Ubuntu
   <img src="images/travis-output.png" width=1000 height=600>
 </div>
 
-WinBuilder builds and checks on Windows
+Win-builder builds and checks on Windows
 ========================================================
 &nbsp;
 - Travis checks package on **Ubuntu**
 <br><br>
 
-- Winbuilder checks package on **Windows**
+- Win-builder checks package on **Windows**
 ```{r,eval=FALSE}
   devtools::build_win()
 ```
@@ -221,7 +220,7 @@ WinBuilder builds and checks on Windows
 - E-mail in 30-60 minutes with results
 &nbsp;
 
-WinBuilder builds and checks on Windows
+Win-builder builds and checks on Windows
 ========================================================
 
 <div align="center">
@@ -232,7 +231,7 @@ Submitting the finished package
 ========================================================
 1. `R CMD check` passes
 2. Travis CI passes
-3. Winbuilder passes
+3. Win-builder passes
 
 Once these steps are complete:
 - Follow http://r-pkgs.had.co.nz/release.html#release-check
