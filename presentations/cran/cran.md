@@ -17,7 +17,7 @@ What is CRAN?
 <br><br>
 - CRAN servers all over the world, called *mirrors*
 <br><br>
-- CRAN servers include **contributed extensions**, (R-packages)
+- CRAN mirrors have **contributed extensions** (R-packages)
 
 Why put your package on CRAN?
 ========================================================
@@ -28,13 +28,12 @@ Why put your package on CRAN?
 - Quality Control (external standards/checks)
 <br><br>
 
-- Higher usage (most people use `install.packages`)
+- More likely to be used (`install.packages`)
 <br><br>
 
 CRAN vs. Github
 ========================================================
-<br><br>
-
+&nbsp;
 - CRAN, Github are platforms for sharing R packages
 <br><br>
 
@@ -44,22 +43,25 @@ CRAN vs. Github
 - Github easy, no external checks
 <br><br>
 
-- Choice depends on Project
+- Choice depends on project
 <br><br>
 
 It all comes down to R CMD check
 ========================================================
+&nbsp;
+`R CMD check`: Terminal command, checks package
+&nbsp;
 
-`R CMD check` is a terminal command that runs checks
-
-- Easy to run with the `devtools` package:
+- Run in console with the `devtools` package:
+&nbsp;
 
 
 ```r
   devtools::check()
 ```
+&nbsp;
 
-In addition to `R CMD check`,  devtools:
+`devtools::check()` also:
 
 - Automatically runs documentation,
 
@@ -67,6 +69,7 @@ In addition to `R CMD check`,  devtools:
 
 Three Types: Notes, Warnings, and Errors
 ========================================================
+<br><br>
 `R CMD check` gives three types of feedback:
 - **Errors**:  Most Severe
 <br><br>
@@ -75,16 +78,12 @@ Three Types: Notes, Warnings, and Errors
 - **Notes**: Least Severe
 <br><br>
 
-Details on individual checks:
+Details on each check: 1.3.1 Writing R Extensions
 
-1. Section 1.3.1 of Writing R Extensions
-
-2. *Checking* Chapter of R-packages book
-
-Will check catch anything here?
+Example 1: Checking the Tests
 ========================================================
 <br><br>
-  Say we changed our tests:
+  Say we add a new test to our package:
 <br><br>
 
 
@@ -96,16 +95,16 @@ test_that("our function works", {
 ```
 
 <br><br>
-`devtools::check()`...
+What will `devtools::check()` do?
 
-The tests don't pass!
+Error: Tests don't run!
 ========================================================
 
 <div align="center">
   <img src="images/error-cran.png" width=800 height=600>
 </div>
 
-What happens here?
+Example 2: Checking documentation
 ========================================================
 
 ```r
@@ -124,16 +123,16 @@ leeR_demo <- function(string) {
 }
 ```
 
-`devtools::check()`...
+`devtools::check()`?
 
-Warning: Function doesn't match Docs
+Warning: Function/Docs don't match
 ========================================================
 
 <div align="center">
   <img src="images/warning-cran.png" width=800 height=600>
 </div>
 
-Anything wrong here?
+Example 3: Anything wrong here?
 ========================================================
 
 ```r
@@ -152,12 +151,11 @@ generate_mvnorm <- function(n, mean_vec) {
 <br><br>
 `devtools::check()`...
 
-Note: Interfacing with other functions
+Note: Using an external package
 ========================================================
 <div align="center">
   <img src="images/note-cran.png" width=600 height=400>
 </div>
-
 
 
 ```r
@@ -165,25 +163,40 @@ Note: Interfacing with other functions
   mvtnorm::rmvnorm
 ```
 
+
+After R CMD check passes, we need to...
+========================================================
+&nbsp;
+- Remember to keep running R CMD check
+<br><br>
+
+- Make sure R CMD check passes on multiple operating systems
+<br><br>
+<br><br>
+
+Solve with Continuous Integration and Winbuilder!
+
 Continuous Integration automates checks
 ========================================================
 What is Continuous Integration (CI)?
 
 "Continuous Integration is the practice of merging in small code changes frequently - rather than merging in a large change at the end of a development cycle. The goal is to build healthier software by developing and testing in smaller increments. This is where Travis CI comes in." - https://docs.travis-ci.com/user/for-beginners
 <br><br>
-- Travis is a "Continuous Integration" service
+- Travis is a "Continuous Integration" (CI) service
 
-- Use Travis to run `R CMD check` on every Github push
+- Use Tracis `R CMD check` on every Github push
 
-How to use Travis CI
+How to integrate Travis with R-package
 ========================================================
-
+&nbsp;
 - Add to package with:
 
 
 ```r
   devtools::use_travis("/home/lee/Dropbox/leeR")
 ```
+
+- Creates `.travis.yml` in source directory
 
 - Get Travis account, link Github account
 
@@ -194,22 +207,26 @@ How to use Travis CI
 Travis builds and checks on Ubuntu
 ========================================================
 
-![alt text](images/travis-output.png)
+<div align="center">
+  <img src="images/travis-output.png" width=1000 height=600>
+</div>
 
 WinBuilder builds and checks on Windows
 ========================================================
+&nbsp;
 - Travis checks package on **Ubuntu**
+<br><br>
 
 - Winbuilder checks package on **Windows**
-
 
 ```r
   devtools::build_win()
 ```
+- Build, submits to https://win-builder.r-project.org/
+<br><br>
 
-- Builds and submits package to
-
-- Simple, just sends an e-mail (example)
+- E-mail in 30-60 minutes with results
+&nbsp;
 
 WinBuilder builds and checks on Windows
 ========================================================
@@ -218,18 +235,14 @@ WinBuilder builds and checks on Windows
   <img src="images/winbuilder.png" width=800 height=500>
 </div>
 
-The final countdown
+Submitting the finished package
 ========================================================
-
-Preliminaries:
-
 1. `R CMD check` passes
 2. Travis CI passes
 3. Winbuilder passes
 
-If all three of these are happening, you are ready to submit!
-
-- Release notes (http://r-pkgs.had.co.nz/release.html#release-check)
+Once these steps are complete:
+- Follow http://r-pkgs.had.co.nz/release.html#release-check
 - Aim, aim, Let it fly!
 
 
